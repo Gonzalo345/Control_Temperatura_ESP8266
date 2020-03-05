@@ -17,8 +17,6 @@
 #define pulsador D2
 
 
-ESP8266WebServer server(80);
-
 //-------------------VARIABLES GLOBALES--------------------------
 int contconexion = 0;
 
@@ -59,8 +57,11 @@ int led2state;
 float temp;
 
 //----------------------WEBSERVER------------------------------------------
+ESP8266WebServer server(80);
 float Temperature;
 float Humidity;
+float Hora;
+float Minutos;
 //-------------------------------------------------------------------------
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -113,9 +114,12 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 void handle_OnConnect() {
 
+
   Temperature = dht.getTemperature();   // Gets the values of the temperature
   Humidity = dht.getHumidity();         // Gets the values of the humidity
-  server.send(200, "text/html", SendHTML(Temperature, Temperature, Humidity));
+  Hora = timeClient.getHours();
+  Minutos = timeClient.getMinutes();
+  server.send(200, "text/html", SendHTML(Temperature, Hora, Minutos, Humidity));
 
 }
 
@@ -158,10 +162,8 @@ void reconnect() {
 //------------------------SETUP-----------------------------
 void setup() {
 
-
+  timeClient.update();
   delay(10);
-
-
   dht.setup(0, DHTesp::DHT11); // Connect DHT sensor to GPIO 17
 
   pinMode(pulsador, INPUT);
@@ -233,12 +235,6 @@ void handle_NotFound(){
 void loop() {
 
   server.handleClient();
-  if (!client.connected()) {
-    reconnect();
-  }
-  client.loop();
-  
-
   Serial.println(timeClient.getFormattedTime());
 
   unsigned long currentMillis = millis();
@@ -306,13 +302,14 @@ void loop() {
   }
 
 }
-String SendHTML(float TempCstat, float TempFstat, float Humiditystat) {
+String SendHTML(float TempCstat, float Hora, float Minutos, float Humiditystat) {
+  
   String ptr = "<!DOCTYPE html> <html>\n";
 
   ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  ptr += "<meta http-equiv=\"refresh\" content=\"60\">\n";
+  ptr += "<meta http-equiv=\"refresh\" content=\"30\">\n";
   ptr += "<link href=\"https://fonts.googleapis.com/css?family=Open+Sans:300,400,600\" rel=\"stylesheet\">\n";
-  ptr += "<title>ESP8266 Weather Report</title>\n";
+  ptr += "<title>ESP8266 Informe del clima</title>\n";
   ptr += "<style>html { font-family: 'Open Sans', sans-serif; display: block; margin: 0px auto; text-align: center;color: #333333;}\n";
   ptr += "body{margin-top: 50px;}\n";
   ptr += "h1 {margin: 50px auto 30px;}\n";
@@ -320,6 +317,12 @@ String SendHTML(float TempCstat, float TempFstat, float Humiditystat) {
   ptr += ".humidity-icon{background-color: #3498db;width: 30px;height: 30px;border-radius: 50%;line-height: 36px;}\n";
   ptr += ".humidity-text{font-weight: 600;padding-left: 15px;font-size: 19px;width: 160px;text-align: left;}\n";
   ptr += ".humidity{font-weight: 300;font-size: 60px;color: #3498db;}\n";
+  
+  ptr += ".hora-icon{background-color: #26B99A;width: 30px;height: 30px;border-radius: 50%;line-height: 36px;}\n";
+  
+  ptr += ".hora-text{font-weight: 600;padding-left: 15px;font-size: 19px;width: 110px;text-align: left;}\n";
+  ptr += ".hora{font-weight: 300;font-size: 60px;color: #3498db;}\n";
+  
   ptr += ".temperature-icon{background-color: #f39c12;width: 30px;height: 30px;border-radius: 50%;line-height: 40px;}\n";
   ptr += ".temperature-text{font-weight: 600;padding-left: 15px;font-size: 19px;width: 160px;text-align: left;}\n";
   ptr += ".temperature{font-weight: 300;font-size: 60px;color: #f39c12;}\n";
@@ -331,7 +334,7 @@ String SendHTML(float TempCstat, float TempFstat, float Humiditystat) {
 
   ptr += "<div id=\"webpage\">\n";
 
-  ptr += "<h1>ESP8266 Weather Report</h1>\n";
+  ptr += "<h1>ESP8266 Informe del clima</h1>\n";
   ptr += "<div class=\"data\">\n";
   ptr += "<div class=\"side-by-side temperature-icon\">\n";
   ptr += "<svg version=\"1.1\" id=\"Layer_1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" x=\"0px\" y=\"0px\"\n";
@@ -343,10 +346,11 @@ String SendHTML(float TempCstat, float TempFstat, float Humiditystat) {
   ptr += "c0.013-3.44,0-6.881,0.007-10.322C2.674,1.634,2.974,0.955,3.498,0.53z\"/>\n";
   ptr += "</svg>\n";
   ptr += "</div>\n";
-  ptr += "<div class=\"side-by-side temperature-text\">Temperature</div>\n";
+  
+  ptr += "<div class=\"side-by-side temperature-text\">Temperatura</div>\n";
   ptr += "<div class=\"side-by-side temperature\">";
   ptr += (int)TempCstat;
-  ptr += "<span class=\"superscript\">=C</span></div>\n";
+  ptr += "<span class=\"superscript\">C</span></div>\n";
   ptr += "</div>\n";
   ptr += "<div class=\"data\">\n";
   ptr += "<div class=\"side-by-side humidity-icon\">\n";
@@ -355,10 +359,26 @@ String SendHTML(float TempCstat, float TempFstat, float Humiditystat) {
   ptr += "c-0.438,1.574-2.264,4.681-6.252,4.681c-3.988,0-5.813-3.107-6.252-4.681C-0.313,11.267,0.026,9.143,1.819,6.217\"></path>\n";
   ptr += "</svg>\n";
   ptr += "</div>\n";
-  ptr += "<div class=\"side-by-side humidity-text\">Humidity</div>\n";
+  
+  ptr += "<div class=\"side-by-side humidity-text\">Humedad</div>\n";
   ptr += "<div class=\"side-by-side humidity\">";
   ptr += (int)Humiditystat;
   ptr += "<span class=\"superscript\">%</span></div>\n";
+  ptr += "</div>\n";
+
+  ptr += "<div class=\"data\">\n";
+  ptr += "<div class=\"side-by-side hora-icon\">\n";
+  ptr += "<svg version=\"1.1\" id=\"Layer_2\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" x=\"0px\" y=\"0px\"\n\"; width=\"23px\" height=\"18px\" viewBox=\"0 0 24 24\">\n";
+  ptr += "<path fill=\"#FFFFFF\" d=\"M12 2c5.514 0 10 4.486 10 10s-4.486 10-10 10-10-4.486-10-10 4.486-10 10-10zm0-2c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.848 12.459c.202.038.202.333.001.372-1.907.361-6.045 1.111-6.547 1.111-.719 0-1.301-.582-1.301-1.301 0-.512.77-5.447 1.125-7.445.034-.192.312-.181.343.014l.985 6.238 5.394 1.011z\"></path>\n";
+  ptr += "</svg>\n";
+  ptr += "</div>\n";
+  
+  ptr += "<div class=\"side-by-side hora-text\">Hora</div>\n";
+  ptr += "<div class=\"side-by-side hora\">";
+  ptr += (int)Hora;
+  ptr += ":";
+  ptr += (int)Minutos;
+  ptr += "<span class=\"superscript\"> Hs</span></div>\n";
   ptr += "</div>\n";
 
   ptr += "</div>\n";
